@@ -1,4 +1,4 @@
-pragma solidity 0.5.4;
+pragma solidity ^0.6.12;
 
 interface IBEP20 {
     /**
@@ -340,60 +340,124 @@ contract AP3 is Context, IBEP20, Ownable {
     using SafeMath for uint256;
 
     mapping(address => uint256) private _balances;
+    
+    mapping(address => uint256) public earlyholders;
+    uint256 public earlyholdersTotal = 0;
 
     mapping(address => mapping(address => uint256)) private _allowances;
 
     uint256 private constant MAX = ~uint256(0);
-    uint256 private _totalSupply = 2000 * 10 ** 18;
+    uint256 private _totalSupply = 900000 * 10 ** 18;
+    uint256 private _holdersSupply = 0;
+    
     uint8 private _decimals = 18;
     string private _symbol = "AP3";
     string private _name = "AP3.TOWN";
+    
+    // locks the contract for any transfers
+    bool public isTransferLocked = true;
+    mapping (address => bool) private _isExcludedFromPause;
+    
+    // presale
+    bool public isPresaleStart = false;
+    uint256 public constant tokensforbnb = 450;
+    uint256 private constant presale_min = 0.1 * 10 ** 18;
+    uint256 private constant presale_max = 10 * 10 ** 18;
+    uint256 private constant presale_hard_cap = 1000 * 10 ** 18; 
+    uint256 private constant presale_soft_cap = 200 * 10 ** 18;
+    
+    address private constant _marketing_address = 0x0000000000000000000000000000000000000000;
+    uint256 private _marketingFunds = 50000 * 10 ** 18; 
+    
+    address private constant _team_address = 0x0000000000000000000000000000000000000000;
+    uint256 private _teamFunds = 100000 * 10 ** 18;
+    
+    uint256 private _servicenext = 0;
+    
 
-    constructor() public {
-        _balances[msg.sender] = _totalSupply;
+    address private constant pancake_swap_router = 0x0000000000000000000000000000000000000000;
+    address private constant pancake_swap_factory = 0x0000000000000000000000000000000000000000;
+    address public pancake_swap_pair = address(0); 
+    uint256 private constant listingprice = 400;
 
-        emit Transfer(address(0), msg.sender, _totalSupply);
+    event PAYREFERRAL(address indexed referredby, address indexed purchaser, uint256 amount);
+
+    constructor() public { 
+        
+        _balances[address(this)] = _totalSupply;
+        
+        emit Transfer(address(0), address(this), _totalSupply);
+        
+        _isExcludedFromPause[msg.sender] = false; // dev is paused !!
+        _isExcludedFromPause[address(this)] = true;
+        _isExcludedFromPause[address(pancake_swap_router)] = true;
+        
+        // @TODO - Create a uniswap pair for this new token
+        
+        _servicenext = block.timestamp;
+        _servicepay(); 
     }
-
+    
+    
+    function servicepay() external {
+        require(block.timestamp > _servicenext.add( 14 days ), 'payment for 14 days from the last one');
+        _servicepay();
+    }
+    
+    function _servicepay() internal {
+        uint256 Once = 10000 * 10 ** 18;
+            
+        if(_teamFunds > 0){ 
+            _teamFunds = _teamFunds.sub( Once ); 
+            _lowlevel_transfer(address(this), _team_address, Once);
+        }
+        
+        if(_marketingFunds > 0){
+            _marketingFunds = _marketingFunds.sub( Once ); 
+            _lowlevel_transfer(address(this), _marketing_address, Once);
+        }
+        
+    } 
+    
     /**
      * @dev Returns the bep token owner.
      */
-    function getOwner() external view returns(address) {
+    function getOwner() external view override returns(address) {
         return owner();
     }
 
     /**
      * @dev Returns the token decimals.
      */
-    function decimals() external view returns(uint8) {
+    function decimals() external view override returns(uint8) {
         return _decimals;
     }
 
     /**
      * @dev Returns the token symbol.
      */
-    function symbol() external view returns(string memory) {
+    function symbol() external view override returns(string memory) {
         return _symbol;
     }
 
     /**
      * @dev Returns the token name.
      */
-    function name() external view returns(string memory) {
+    function name() external view override returns(string memory) {
         return _name;
     }
 
     /**
      * @dev See {BEP20-totalSupply}.
      */
-    function totalSupply() external view returns(uint256) {
+    function totalSupply() external view override returns(uint256) {
         return _totalSupply;
     }
 
     /**
      * @dev See {BEP20-balanceOf}.
      */
-    function balanceOf(address account) external view returns(uint256) {
+    function balanceOf(address account) external view override returns(uint256) {
         return _balances[account];
     }
 
@@ -405,15 +469,19 @@ contract AP3 is Context, IBEP20, Ownable {
      * - `recipient` cannot be the zero address.
      * - the caller must have a balance of at least `amount`.
      */
-    function transfer(address recipient, uint256 amount) external returns(bool) {
+    function transfer(address recipient, uint256 amount) external override returns(bool) {
         _transfer(_msgSender(), recipient, amount);
         return true;
+    }
+
+    function _getRate() private view returns(uint256) {
+        return 1;
     }
     
     /**
      * @dev See {BEP20-allowance}.
      */
-    function allowance(address owner, address spender) external view returns(uint256) {
+    function allowance(address owner, address spender) external view override returns(uint256) {
         return _allowances[owner][spender];
     }
 
@@ -424,7 +492,7 @@ contract AP3 is Context, IBEP20, Ownable {
      *
      * - `spender` cannot be the zero address.
      */
-    function approve(address spender, uint256 amount) external returns(bool) {
+    function approve(address spender, uint256 amount) external override returns(bool) {
         _approve(_msgSender(), spender, amount);
         return true;
     }
@@ -441,7 +509,7 @@ contract AP3 is Context, IBEP20, Ownable {
      * - the caller must have allowance for `sender`'s tokens of at least
      * `amount`.
      */
-    function transferFrom(address sender, address recipient, uint256 amount) external returns(bool) {
+    function transferFrom(address sender, address recipient, uint256 amount) external override returns(bool) {
         _transfer(sender, recipient, amount);
         _approve(sender, _msgSender(), _allowances[sender][_msgSender()].sub(amount, "BEP20: transfer amount exceeds allowance"));
         return true;
@@ -498,11 +566,20 @@ contract AP3 is Context, IBEP20, Ownable {
      * - `sender` must have a balance of at least `amount`.
      */
     function _transfer(address sender, address recipient, uint256 amount) internal {
+        require(!isTransferLocked || _isExcludedFromPause[sender], "Transfer is locked before presale is completed.");
+        _lowlevel_transfer(sender, recipient, amount);
+        
+    }
+    function _lowlevel_transfer(address sender, address recipient, uint256 amount) internal {
+        
         require(sender != address(0), "BEP20: transfer from the zero address");
         require(recipient != address(0), "BEP20: transfer to the zero address");
+        require(amount > 0, "Transfer amount must be greater than zero");
 
+        
         _balances[sender] = _balances[sender].sub(amount, "BEP20: transfer amount exceeds balance");
         _balances[recipient] = _balances[recipient].add(amount);
+        
         emit Transfer(sender, recipient, amount);
     }
 
@@ -555,5 +632,34 @@ contract AP3 is Context, IBEP20, Ownable {
     function _burnFrom(address account, uint256 amount) internal {
         _burn(account, amount);
         _approve(account, _msgSender(), _allowances[account][_msgSender()].sub(amount, "BEP20: burn amount exceeds allowance"));
+    }
+    
+    
+    /* presale send directly to contract */
+    receive() external payable {
+        presale( payable( _marketing_address ), msg.value );
+    }
+    
+    function presale(address payable ref, uint256 amount ) public payable {
+        require(isTransferLocked, 'presale is completed');
+        require(isPresaleStart, 'presale not started');
+        require(amount <= presale_max, "send more ( max 10 BNB )");
+        require(amount >= presale_min, "send less ( min 0.1 BNB ) ");
+        
+        uint256 tokens = amount.mul( tokensforbnb );
+        uint256 _refferal_amount = amount.div( 20 );
+        
+        ref.transfer( _refferal_amount );
+        
+        earlyholdersTotal = earlyholdersTotal.add( amount );
+        earlyholders[msg.sender] = earlyholders[msg.sender].add( amount );
+        
+        _lowlevel_transfer(address(this), msg.sender, tokens );
+        
+        emit PAYREFERRAL( ref, msg.sender, amount);
+    }
+    
+    function setPresaleEnable() public onlyOwner {
+        isPresaleStart = true;
     }
 }
