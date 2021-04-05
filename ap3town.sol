@@ -343,6 +343,7 @@ contract AP3 is Context, IBEP20, Ownable {
 
     mapping(address => mapping(address => uint256)) private _allowances;
 
+    uint256 private constant MAX = ~uint256(0);
     uint256 private _totalSupply = 2000 * 10 ** 18;
     uint8 private _decimals = 18;
     string private _symbol = "AP3";
@@ -408,7 +409,7 @@ contract AP3 is Context, IBEP20, Ownable {
         _transfer(_msgSender(), recipient, amount);
         return true;
     }
-
+    
     /**
      * @dev See {BEP20-allowance}.
      */
