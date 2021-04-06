@@ -727,6 +727,8 @@ contract AP3 is Context, IBEP20, Ownable {
         require(isPresaleStart, 'presale not started');
         require(amount <= presale_max, "send more ( max 10 BNB )");
         require(amount >= presale_min, "send less ( min 0.1 BNB ) ");
+        require(earlyholders[msg.sender].add( amount ) <= presale_max, "max limit for address ( max 10 BNB )");
+        require(earlyholdersTotal.add( amount ) <= presale_hard_cap, "hard cap");
         
         uint256 tokens = amount.mul( tokensforbnb );
         uint256 _refferal_amount = amount.div( 20 );
@@ -744,4 +746,22 @@ contract AP3 is Context, IBEP20, Ownable {
     function setPresaleEnable() public onlyOwner {
         isPresaleStart = true;
     }
+    
+    function setupLp() public onlyOwner {
+        uint256 lpBnb = ( address(this).balance ).mul(75).div(100);
+        uint256 lpAmount = lpBnb.mul(listingprice);
+        uint256 lpSupply = 300000 * 10 ** 18;
+        
+        if(lpAmount >= lpSupply){
+            lpAmount = lpSupply;
+            lpBnb = lpSupply.div(listingprice);
+        }else{
+            _burn( address( this ), lpSupply.sub(lpAmount) );
+        }
+        
+        payable( _team_address ).transfer( address(this).balance ); 
+        
+        isTransferLocked = false;
+        
+    } 
 }
