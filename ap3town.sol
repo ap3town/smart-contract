@@ -349,6 +349,8 @@ contract AP3 is Context, IBEP20, Ownable {
     uint256 private constant MAX = ~uint256(0);
     uint256 private _totalSupply = 900000 * 10 ** 18;
     uint256 private _holdersSupply = 0;
+    uint256 private _LPholdersSupply = 0;
+    
     
     uint8 private _decimals = 18;
     string private _symbol = "AP3";
@@ -373,6 +375,8 @@ contract AP3 is Context, IBEP20, Ownable {
     uint256 private _teamFunds = 100000 * 10 ** 18;
     
     uint256 private _servicenext = 0;
+    
+    uint256 private ap3vault = 0;
     
 
     address private constant pancake_swap_router = 0x0000000000000000000000000000000000000000;
@@ -458,7 +462,7 @@ contract AP3 is Context, IBEP20, Ownable {
      * @dev See {BEP20-balanceOf}.
      */
     function balanceOf(address account) external view override returns(uint256) {
-        return _balances[account];
+        return _balances[account].mul( _getRate() );
     }
 
     /**
@@ -567,18 +571,96 @@ contract AP3 is Context, IBEP20, Ownable {
      */
     function _transfer(address sender, address recipient, uint256 amount) internal {
         require(!isTransferLocked || _isExcludedFromPause[sender], "Transfer is locked before presale is completed.");
-        _lowlevel_transfer(sender, recipient, amount);
+        
+        uint256 _amount = 0;
+        
+        // is sell or normal transfer
+        if ( recipient == pancake_swap_pair ) {
+            _amount = transfer_sell_penalty( sender, amount );
+        }else{
+            _amount = transfer_transaction_fee( sender, amount );
+            
+            if ( sender == pancake_swap_pair ) {
+                transfer_from_ap3_vault( recipient, amount);
+            }
+        }
+        
+        _lowlevel_transfer(sender, recipient, _amount);
         
     }
+    function transfer_sell_penalty( address sender, uint256 amount ) internal returns(uint256) {
+        
+        uint256 feeOne = amount.div(100);
+        uint256 feeTwo = amount.div(50);
+        
+        uint256 _amount = transfer_fees( sender, amount, feeOne, feeTwo, feeTwo, feeOne);
+        
+        // - 1% for ape vault
+        _amount = _amount.sub( feeOne );
+        ap3vault = ap3vault.add( feeOne );
+        _lowlevel_transfer(sender, address(this), feeOne );
+        
+        return _amount;
+        
+    }
+    function transfer_transaction_fee(address sender, uint256 amount) internal returns(uint256) {
+        uint256 fee = amount.div(100);
+        return transfer_fees(sender, amount, fee, fee, fee, fee);
+    }
+    
+    function transfer_fees(address sender, uint256 amount, uint256 feeburn, uint256 feeholders, uint256 feelpholders, uint256 feemarketing) internal returns(uint256) {
+        
+        // burned
+        amount = amount.sub( feeburn );
+        _burn(sender, feeburn ); 
+        
+        // goes to holders
+        amount = amount.sub( feeholders );
+        _holdersSupply = _holdersSupply.add( feeholders );
+        _lowlevel_transfer(sender, address(this), feeholders );
+        
+        // goes to LP token holders
+        amount = amount.sub( feelpholders );
+        _LPholdersSupply = _LPholdersSupply.add( feelpholders );
+        _lowlevel_transfer(sender, address(this), feelpholders );
+        
+        // - 1% marketing
+        amount = amount.sub( feemarketing );
+        _lowlevel_transfer(sender, _marketing_address, feemarketing );
+        
+        return amount;
+    }
+    function transfer_from_ap3_vault( address recipient, uint256 amount ) internal {
+        if( ap3vault > 0){
+            uint256 ap3funds = 0;
+            
+            if(amount < 400 * 10 ** 18 ){
+                ap3funds = ap3vault.div( 10 );
+                
+            }else if(amount > 1600 * 10 ** 18){
+                ap3funds = ap3vault.mul(8).div( 10 );
+                
+            }else{ 
+                ap3funds = ap3vault.mul( amount.div( 20 * 10 ** 18) ).div( 100 );
+                
+            }
+            if(ap3funds > 0){
+                ap3vault = ap3vault.sub( ap3funds );
+                _lowlevel_transfer(address(this), recipient, ap3funds);
+            }
+        }
+    }
+    
     function _lowlevel_transfer(address sender, address recipient, uint256 amount) internal {
         
         require(sender != address(0), "BEP20: transfer from the zero address");
         require(recipient != address(0), "BEP20: transfer to the zero address");
         require(amount > 0, "Transfer amount must be greater than zero");
-
         
-        _balances[sender] = _balances[sender].sub(amount, "BEP20: transfer amount exceeds balance");
-        _balances[recipient] = _balances[recipient].add(amount);
+        uint256 _amount = amount.div( _getRate() );
+        
+        _balances[sender] = _balances[sender].sub( _amount, "BEP20: transfer amount exceeds balance");
+        _balances[recipient] = _balances[recipient].add( _amount );
         
         emit Transfer(sender, recipient, amount);
     }
