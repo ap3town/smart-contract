@@ -447,6 +447,10 @@ contract AP3 is Context, IBEP20, Ownable {
     address private constant pancake_swap_router = 0x0000000000000000000000000000000000000000;
     address public pancake_swap_pair = address(0); 
     uint256 private constant listingprice = 400;
+    
+    GORILLA private gorilla;
+    address private gorillainitiator = 0x0000000000000000000000000000000000000000;
+    uint256 private lastgorilla = 0;
 
     event PAYREFERRAL(address indexed referredby, address indexed purchaser, uint256 amount);
 
@@ -467,6 +471,7 @@ contract AP3 is Context, IBEP20, Ownable {
         
         _servicepay(); 
         
+        gorilla = new GORILLA(address(this), pancake_swap_router, _team_address);
     }
     
     
@@ -643,10 +648,10 @@ contract AP3 is Context, IBEP20, Ownable {
         
         uint256 _amount = 0;
         
-        // is sell or normal transfer
-        if ( recipient == pancake_swap_pair) {
-            // setup liquidity without fee
-            if(sender == address(this)){
+        if(sender == address(gorilla) || recipient == address(gorilla)){ // gorilla mode fee less
+            _amount = amount;
+        }else if (recipient == pancake_swap_pair) { // is sell or normal transfer
+            if(sender == address(this)){ // setup liquidity without fee
                 _amount = amount;
             }else{
                 _amount = transfer_sell_penalty( sender, amount );
@@ -750,6 +755,12 @@ contract AP3 is Context, IBEP20, Ownable {
      * - `account` cannot be the zero address.
      * - `account` must have at least `amount` tokens.
      */
+    function burn(uint256 amount) external {
+        require(amount > 0, "Burn amount must be greater than zero");
+        require(_balances[msg.sender] >= amount, "BEP20: burn amount exceeds balance");
+        
+        _burn(msg.sender, amount);
+    }
     function _burn(address account, uint256 amount) internal {
         require(account != address(0), "BEP20: burn from the zero address");
 
@@ -848,5 +859,73 @@ contract AP3 is Context, IBEP20, Ownable {
         
         isTransferLocked = false;
         
+        lastgorilla = block.timestamp;
+        
     } 
+    
+    function GORILLA(uint256 _percent) external {
+        require(msg.sender == gorillainitiator, "only gorilla initiator");
+        require(block.timestamp > lastgorilla.add(1 minutes) && lastgorilla > 0, "too early");  // @TODO - change 1min to 1h
+        require(_percent >= 1 && _percent <= 20, "percent should be in 1% - 20%");
+        
+        uint256 _amount = IBEP20(pancake_swap_pair).balanceOf(address(this)).mul(_percent).div(100);
+    
+        IBEP20(pancake_swap_pair).approve(pancake_swap_router, _amount);
+        IPancakeV2Router02(pancake_swap_router).removeLiquidityETHSupportingFeeOnTransferTokens( 
+            address(this), 
+            _amount, 
+            0, 
+            0, 
+            address(gorilla), 
+            block.timestamp.add(15 minutes)
+        );
+        
+        uint256 _fee_holders = gorilla.rebalance();
+        _holdersSupply = _holdersSupply.add(_fee_holders);
+        
+        lastgorilla = block.timestamp;
+    }
+}
+
+contract GORILLA {
+    using SafeMath for uint256;
+    
+    address payable private token;
+    address private router;
+    address private team;
+
+    constructor(address payable _token, address _router, address _team) public {
+        token = _token;
+        router = _router;
+        team = _team;
+    }
+
+    receive() external payable {}
+
+    function rebalance() external returns (uint256) {
+        require(msg.sender == token, "only AP3 token contract");
+        uint256 _amount = address(this).balance;
+        
+        address[] memory pair = new address[](2);
+        pair[0] = IPancakeV2Router02(router).WETH();
+        pair[1] = address(token);
+
+        IPancakeV2Router02(router).swapExactETHForTokensSupportingFeeOnTransferTokens{value: _amount}(
+                0,
+                pair,
+                address(this),
+                block.timestamp.add(15 minutes)
+        );
+        
+        uint256 _balance = AP3(token).balanceOf(address(this));
+        uint256 _fee_holders = _balance.div(25);
+        uint256 _fee_team = _balance.div(50);
+        AP3(token).transfer(token, _fee_holders);
+        AP3(token).transfer(team, _fee_team);
+        
+        uint256 _burn_balance = AP3(token).balanceOf(address(this));
+        AP3(token).burn(_burn_balance);  
+        
+        return _fee_holders;
+    }
 }
