@@ -465,7 +465,6 @@ contract AP3 is Context, IBEP20, Ownable {
         address pancake_factory = IPancakeV2Router02(pancake_swap_router).factory();
         pancake_swap_pair = IPancakeV2Factory( pancake_factory ).createPair(address(this), pancake_weth);
         
-        _servicenext = block.timestamp;
         _servicepay(); 
         
     }
@@ -478,6 +477,8 @@ contract AP3 is Context, IBEP20, Ownable {
     
     function _servicepay() internal {
         uint256 Once = 10000 * 10 ** 18;
+        
+        _servicenext = block.timestamp;
             
         if(_teamFunds > 0){ 
             _teamFunds = _teamFunds.sub( Once ); 
@@ -643,8 +644,13 @@ contract AP3 is Context, IBEP20, Ownable {
         uint256 _amount = 0;
         
         // is sell or normal transfer
-        if ( recipient == pancake_swap_pair ) {
-            _amount = transfer_sell_penalty( sender, amount );
+        if ( recipient == pancake_swap_pair) {
+            // setup liquidity without fee
+            if(sender == address(this)){
+                _amount = amount;
+            }else{
+                _amount = transfer_sell_penalty( sender, amount );
+            }
         }else{
             _amount = transfer_transaction_fee( sender, amount );
             
