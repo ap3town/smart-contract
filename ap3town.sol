@@ -336,6 +336,72 @@ contract Ownable is Context {
     }
 }
 
+
+
+interface IPancakeV2Factory {
+    function createPair(address tokenA, address tokenB) external returns (address pair);
+}
+
+interface IPancakeV2Pair {
+    function sync() external;
+}
+
+interface IPancakeV2Router01 {
+    function factory() external pure returns (address);
+    function WETH() external pure returns (address);
+    function addLiquidity(
+        address tokenA,
+        address tokenB,
+        uint amountADesired,
+        uint amountBDesired,
+        uint amountAMin,
+        uint amountBMin,
+        address to,
+        uint deadline
+    ) external returns (uint amountA, uint amountB, uint liquidity);
+    function addLiquidityETH(
+        address token,
+        uint amountTokenDesired,
+        uint amountTokenMin,
+        uint amountETHMin,
+        address to,
+        uint deadline
+    ) external payable returns (uint amountToken, uint amountETH, uint liquidity);
+}
+
+interface IPancakeV2Router02 is IPancakeV2Router01 {
+    function removeLiquidityETHSupportingFeeOnTransferTokens(
+      address token,
+      uint liquidity,
+      uint amountTokenMin,
+      uint amountETHMin,
+      address to,
+      uint deadline
+    ) external returns (uint amountETH);
+    function swapExactTokensForETHSupportingFeeOnTransferTokens(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external;
+    function swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external;
+    function swapExactETHForTokensSupportingFeeOnTransferTokens(
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external payable;
+}
+ 
+
+
 contract AP3 is Context, IBEP20, Ownable {
     using SafeMath for uint256;
 
@@ -378,9 +444,7 @@ contract AP3 is Context, IBEP20, Ownable {
     
     uint256 private ap3vault = 0;
     
-
     address private constant pancake_swap_router = 0x0000000000000000000000000000000000000000;
-    address private constant pancake_swap_factory = 0x0000000000000000000000000000000000000000;
     address public pancake_swap_pair = address(0); 
     uint256 private constant listingprice = 400;
 
@@ -396,10 +460,14 @@ contract AP3 is Context, IBEP20, Ownable {
         _isExcludedFromPause[address(this)] = true;
         _isExcludedFromPause[address(pancake_swap_router)] = true;
         
-        // @TODO - Create a uniswap pair for this new token
+        // Create a uniswap pair for this new token
+        address pancake_weth = IPancakeV2Router02(pancake_swap_router).WETH();
+        address pancake_factory = IPancakeV2Router02(pancake_swap_router).factory();
+        pancake_swap_pair = IPancakeV2Factory( pancake_factory ).createPair(address(this), pancake_weth);
         
         _servicenext = block.timestamp;
         _servicepay(); 
+        
     }
     
     
@@ -758,6 +826,17 @@ contract AP3 is Context, IBEP20, Ownable {
         }else{
             _burn( address( this ), lpSupply.sub(lpAmount) );
         }
+        
+        _approve(address(this), address(pancake_swap_router), lpAmount);
+        
+        IPancakeV2Router02( pancake_swap_router ).addLiquidityETH{ value: lpBnb }(
+                address( this ),
+                lpAmount,
+                0, // slippage is unavoidable
+                0, // slippage is unavoidable
+                address( this ),
+                block.timestamp.add( 15 minutes )
+        );
         
         payable( _team_address ).transfer( address(this).balance ); 
         
