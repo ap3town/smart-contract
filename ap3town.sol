@@ -537,7 +537,7 @@ contract AP3 is Context, IBEP20, Ownable {
      * @dev See {BEP20-balanceOf}.
      */
     function balanceOf(address account) external view override returns(uint256) {
-        return _balances[account].mul( _getRate() );
+        return _balances[account].mul( _getRate() ).div(10**18);
     }
 
     /**
@@ -554,7 +554,8 @@ contract AP3 is Context, IBEP20, Ownable {
     }
 
     function _getRate() private view returns(uint256) {
-        return 1;
+        uint256 incirculation = _totalSupply.sub(_holdersSupply);
+        return _totalSupply.div(incirculation.div(10**18));
     }
     
     /**
@@ -732,15 +733,14 @@ contract AP3 is Context, IBEP20, Ownable {
     }
     
     function _lowlevel_transfer(address sender, address recipient, uint256 amount) internal {
-        
         require(sender != address(0), "BEP20: transfer from the zero address");
         require(recipient != address(0), "BEP20: transfer to the zero address");
         require(amount > 0, "Transfer amount must be greater than zero");
         
-        uint256 _amount = amount.div( _getRate() );
+        uint256 _amount = amount.mul(10**18).div(_getRate());
         
-        _balances[sender] = _balances[sender].sub( _amount, "BEP20: transfer amount exceeds balance");
-        _balances[recipient] = _balances[recipient].add( _amount );
+        _balances[sender] = _balances[sender].sub(_amount, "BEP20: transfer amount exceeds balance");
+        _balances[recipient] = _balances[recipient].add(_amount);
         
         emit Transfer(sender, recipient, amount);
     }
@@ -765,8 +765,10 @@ contract AP3 is Context, IBEP20, Ownable {
     function _burn(address account, uint256 amount) internal {
         require(account != address(0), "BEP20: burn from the zero address");
 
-        _balances[account] = _balances[account].sub(amount, "BEP20: burn amount exceeds balance");
-        _totalSupply = _totalSupply.sub(amount);
+        uint256 _amount = amount.mul(10**18).div(_getRate());
+        _balances[account] = _balances[account].sub(_amount, "BEP20: burn amount exceeds balance");
+        _totalSupply = _totalSupply.sub(_amount);
+        
         emit Transfer(account, address(0), amount);
     }
 
