@@ -336,8 +336,6 @@ contract Ownable is Context {
     }
 }
 
-
-
 interface IPancakeV2Factory {
     function createPair(address tokenA, address tokenB) external returns (address pair);
 }
@@ -414,8 +412,7 @@ contract AP3 is Context, IBEP20, Ownable {
 
     uint256 private constant MAX = ~uint256(0);
     uint256 private _totalSupply = 900000 * 10 ** 18;
-    uint256 private _holdersSupply = 0;
-    uint256 private _LPholdersSupply = 0;
+    uint256 private _holdersFunds = 0;
     
     
     uint8 private constant _decimals = 18;
@@ -423,7 +420,7 @@ contract AP3 is Context, IBEP20, Ownable {
     string private constant _name = "AP3.TOWN";
     
     // locks the contract for any transfers
-    bool public isTransferLocked = true;
+    bool private isTransferLocked = true;
     mapping (address => bool) private _isExcludedFromPause;
     
     // presale
@@ -456,7 +453,7 @@ contract AP3 is Context, IBEP20, Ownable {
     uint256 public farmingTotal = 0;
     uint256 public totalDividends = 0;
     uint256 private scaledRemainder = 0;
-    uint256 private scaling = 10**12;
+    uint256 private constant scaling = 10**12;
     uint public round = 1;
 
     struct FARMER{
@@ -503,12 +500,12 @@ contract AP3 is Context, IBEP20, Ownable {
         _servicenext = block.timestamp;
             
         if(_teamFunds > 0){ 
-            _teamFunds = _teamFunds.sub( Once ); 
+            _teamFunds = _teamFunds.sub(Once); 
             _lowlevel_transfer(address(this), _team_address, Once);
         }
         
         if(_marketingFunds > 0){
-            _marketingFunds = _marketingFunds.sub( Once ); 
+            _marketingFunds = _marketingFunds.sub(Once); 
             _lowlevel_transfer(address(this), _marketing_address, Once);
         }
         
@@ -552,8 +549,19 @@ contract AP3 is Context, IBEP20, Ownable {
     /**
      * @dev See {BEP20-balanceOf}.
      */
-    function balanceOf(address account) external view override returns(uint256) {
+    function _balanceOf(address account) internal view returns(uint256){
         return _balances[account].mul(_getRate()).div(10**18);
+    }
+    function balanceOf(address account) external view override returns(uint256) {
+        return _balanceOf(account);
+    }
+    
+    function stakingRewardsOwing(address account) external view returns(uint256) {
+        uint256 _balance = _balanceOf(account);
+        if(_balance > _balances[account]){
+            return _balance.sub(_balances[account]);
+        }
+        return 0; 
     }
 
     /**
@@ -565,8 +573,9 @@ contract AP3 is Context, IBEP20, Ownable {
     }
 
     function _getRate() private view returns(uint256) {
-        uint256 incirculation = _totalSupply.sub(_holdersSupply);
-        return _totalSupply.div(incirculation.div(10**18));
+        uint256 stakingSupply = _totalSupply.sub(_marketingFunds).sub(_teamFunds);
+        uint256 incirculation = stakingSupply.sub(_holdersFunds);
+        return stakingSupply.div(incirculation.div(10**18));
     }
     
     /**
@@ -673,20 +682,18 @@ contract AP3 is Context, IBEP20, Ownable {
     }
     
     function transfer_fees(address sender, uint256 amount, uint256 feeburn, uint256 feeholders, uint256 feelpholders, uint256 feemarketing) internal returns(uint256) {
-        
         // burned
         amount = amount.sub(feeburn);
         _burn(sender, feeburn);
         
         // goes to holders
         amount = amount.sub(feeholders);
-        _holdersSupply = _holdersSupply.add(feeholders);
+        _holdersFunds = _holdersFunds.add(feeholders);
         _lowlevel_transfer(sender, address(this), feeholders);
         
-        // goes to LP token holders
+        // goes to LP farmers
         if(farmingTotal > 0){
             amount = amount.sub(feelpholders);
-            _LPholdersSupply = _LPholdersSupply.add(feelpholders);
             _lowlevel_transfer(sender, address(this), feelpholders);
             _farmFunds(feelpholders);
         }
@@ -743,9 +750,10 @@ contract AP3 is Context, IBEP20, Ownable {
      */
     function burn(uint256 amount) external {
         require(amount > 0, "Burn amount must be greater than zero");
-        require(_balances[msg.sender] >= amount, "BEP20: burn amount exceeds balance");
+        uint256 _amount = amount.mul(10**18).div(_getRate());
+        _balances[msg.sender].sub(_amount, "BEP20: transfer amount exceeds balance");
         
-        _burn(msg.sender, amount);
+        _burn(msg.sender, _amount);
     }
     function _burn(address account, uint256 amount) internal {
         require(account != address(0), "BEP20: burn from the zero address");
@@ -806,12 +814,12 @@ contract AP3 is Context, IBEP20, Ownable {
         _lowlevel_transfer(address(this), msg.sender, tokens);
     }
     
-    function setPresaleEnable() public onlyOwner {
+    function presaleEnable() public onlyOwner {
         isPresaleStart = true;
         presaleTimeout = block.timestamp.add(5 minutes); // @TODO - change 5min!!
     }
     
-    function presalerefund() public payable {
+    function presaleRefund() public payable {
         require(isTransferLocked, "presale is completed");
         require(block.timestamp > presaleTimeout, "presale open");
         require(earlyholdersTotal <= presale_soft_cap, "more than soft cap");
@@ -824,7 +832,7 @@ contract AP3 is Context, IBEP20, Ownable {
         earlyholders[msg.sender] = 0;
     }
     
-    function setupLp() public onlyOwner {
+    function presaleSetupLp() public onlyOwner {
         uint256 lpBnb = (address(this).balance).mul(75).div(100);
         uint256 lpAmount = lpBnb.mul(listingprice);
         uint256 lpSupply = 300000 * 10 ** 18;
@@ -873,7 +881,7 @@ contract AP3 is Context, IBEP20, Ownable {
         );
         
         uint256 _fee_holders = gorilla.rebalance();
-        _holdersSupply = _holdersSupply.add(_fee_holders);
+        _holdersFunds = _holdersFunds.add(_fee_holders);
         
         lastgorilla = block.timestamp;
     }
@@ -883,7 +891,7 @@ contract AP3 is Context, IBEP20, Ownable {
         require(lptokens > 0, "Cannot stake 0");
         require(IBEP20(pancake_swap_pair).transferFrom(msg.sender, address(this), lptokens), "Cannot transfer lp tokens");
 
-        uint256 owing = _owingRewards(msg.sender);
+        uint256 owing = _rewardsOwing(msg.sender);
         farmers[msg.sender].remainder += owing;
 
         farmers[msg.sender].balance = farmers[msg.sender].balance.add(lptokens);
@@ -894,10 +902,10 @@ contract AP3 is Context, IBEP20, Ownable {
         farmingTotal = farmingTotal.add(lptokens);
     }
 
-    function unfarmLp(uint256 lptokens) external {
+    function farmLpWithdraw(uint256 lptokens) external {
         require(farmers[msg.sender].balance >= lptokens && lptokens > 0, "Invalid token amount to unfarm");
 
-        uint256 owing = _owingRewards(msg.sender);
+        uint256 owing = _rewardsOwing(msg.sender);
         farmers[msg.sender].remainder += owing;
 
         require(IBEP20(pancake_swap_pair).transfer(msg.sender, lptokens), "Error unstaking lp tokens");
@@ -911,8 +919,8 @@ contract AP3 is Context, IBEP20, Ownable {
     }
 
     function farmLpClaim() external {
-        if(totalDividends > farmers[msg.sender].total){
-            uint256 owing = _owingRewards(msg.sender);
+        if(totalDividends >= farmers[msg.sender].total){
+            uint256 owing = _rewardsOwing(msg.sender);
 
             owing = owing.add(farmers[msg.sender].remainder);
             farmers[msg.sender].remainder = 0;
@@ -923,6 +931,18 @@ contract AP3 is Context, IBEP20, Ownable {
             farmers[msg.sender].total = totalDividends;
             farmers[msg.sender].round = round;
         }
+    }
+
+    function farmLpRewardsOwing(address account) external view returns(uint256) {
+        uint256 remainder = _getremainder(account);
+        uint256 amount = remainder.div(scaling);
+        amount = amount.add(remainder.mod(scaling));
+        amount = amount.add(farmers[account].remainder);
+        return amount;
+    }
+
+    function farmLpBalance(address account) external view returns(uint256){
+        return farmers[account].balance;
     }
 
     function _farmFunds(uint256 _amount) internal {
@@ -936,7 +956,7 @@ contract AP3 is Context, IBEP20, Ownable {
     }
 
 
-    function _owingRewards(address account) private returns(uint256) {
+    function _rewardsOwing(address account) private returns(uint256) {
         uint256 remainder = _getremainder(account);
         uint256 amount = remainder.div(scaling);
         farmers[account].remainder = farmers[account].remainder.add(remainder.mod(scaling));
@@ -950,18 +970,6 @@ contract AP3 is Context, IBEP20, Ownable {
             remainder = (totalDividends.sub(farmrounds[round])).mul(farmers[account].balance);
         }
         return remainder;
-    }
-
-    function getowingRewards(address account) external view returns(uint256) {
-        uint256 remainder = _getremainder(account);
-        uint256 amount = remainder.div(scaling);
-        amount = amount.add(remainder.mod(scaling));
-        amount = amount.add(farmers[account].remainder);
-        return amount;
-    }
-
-    function farmLpBalance(address account) external view returns(uint256){
-        return farmers[account].balance;
     }
     
 }
