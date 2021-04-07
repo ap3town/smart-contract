@@ -399,7 +399,7 @@ interface IPancakeV2Router02 is IPancakeV2Router01 {
         uint deadline
     ) external payable;
 }
- 
+
 
 
 contract AP3 is Context, IBEP20, Ownable {
@@ -452,6 +452,24 @@ contract AP3 is Context, IBEP20, Ownable {
     GORILLA private gorilla;
     address private gorillainitiator = 0x0000000000000000000000000000000000000000;
     uint256 private lastgorilla = 0;
+     
+    uint256 public farmingTotal = 0;
+    uint256 public totalDividends = 0;
+    uint256 private scaledRemainder = 0;
+    uint256 private scaling = 10**12;
+    uint public round = 1;
+
+    struct FARMER{
+        uint256 balance;
+        uint256 last;
+        uint256 total;
+        uint round;
+        uint256 remainder;
+    }
+
+    mapping(address => FARMER) farmers;
+    mapping(uint => uint256) public farmrounds;
+
 
     constructor() public { 
         
@@ -629,7 +647,7 @@ contract AP3 is Context, IBEP20, Ownable {
         
         _lowlevel_transfer(sender, recipient, _amount);
         
-        if ( sender == pancake_swap_pair || recipient == pancake_swap_pair ) {
+        if(!isTransferLocked && (sender == pancake_swap_pair || recipient == pancake_swap_pair)) {
             transfer_to_pancake();
         }
         
@@ -666,9 +684,12 @@ contract AP3 is Context, IBEP20, Ownable {
         _lowlevel_transfer(sender, address(this), feeholders);
         
         // goes to LP token holders
-        amount = amount.sub(feelpholders);
-        _LPholdersSupply = _LPholdersSupply.add(feelpholders);
-        _lowlevel_transfer(sender, address(this), feelpholders);
+        if(farmingTotal > 0){
+            amount = amount.sub(feelpholders);
+            _LPholdersSupply = _LPholdersSupply.add(feelpholders);
+            _lowlevel_transfer(sender, address(this), feelpholders);
+            _farmFunds(feelpholders);
+        }
         
         // - 1% marketing
         amount = amount.sub(feemarketing);
@@ -698,7 +719,9 @@ contract AP3 is Context, IBEP20, Ownable {
     }
     
     function transfer_to_pancake() internal{
-        IPancakeV2Pair(pancake_swap_pair).sync();
+        
+// @TODO fix
+        // IPancakeV2Pair(pancake_swap_pair).sync();
     }
     
     function _lowlevel_transfer(address sender, address recipient, uint256 amount) internal {
@@ -837,7 +860,7 @@ contract AP3 is Context, IBEP20, Ownable {
         require(block.timestamp > lastgorilla.add(1 minutes) && lastgorilla > 0, "too early");  // @TODO - change 1min to 1h
         require(_percent >= 1 && _percent <= 20, "percent should be in 1% - 20%");
         
-        uint256 _amount = IBEP20(pancake_swap_pair).balanceOf(address(this)).mul(_percent).div(100);
+        uint256 _amount = IBEP20(pancake_swap_pair).balanceOf(address(this)).sub(farmingTotal).mul(_percent).div(100);
     
         IBEP20(pancake_swap_pair).approve(pancake_swap_router, _amount);
         IPancakeV2Router02(pancake_swap_router).removeLiquidityETHSupportingFeeOnTransferTokens( 
@@ -854,6 +877,93 @@ contract AP3 is Context, IBEP20, Ownable {
         
         lastgorilla = block.timestamp;
     }
+    
+    
+    function farmLp(uint256 lptokens) external {
+        require(lptokens > 0, "Cannot stake 0");
+        require(IBEP20(pancake_swap_pair).transferFrom(msg.sender, address(this), lptokens), "Cannot transfer lp tokens");
+
+        uint256 owing = _owingRewards(msg.sender);
+        farmers[msg.sender].remainder += owing;
+
+        farmers[msg.sender].balance = farmers[msg.sender].balance.add(lptokens);
+        farmers[msg.sender].last = owing;
+        farmers[msg.sender].total = totalDividends;
+        farmers[msg.sender].round = round;
+
+        farmingTotal = farmingTotal.add(lptokens);
+    }
+
+    function unfarmLp(uint256 lptokens) external {
+        require(farmers[msg.sender].balance >= lptokens && lptokens > 0, "Invalid token amount to unfarm");
+
+        uint256 owing = _owingRewards(msg.sender);
+        farmers[msg.sender].remainder += owing;
+
+        require(IBEP20(pancake_swap_pair).transfer(msg.sender, lptokens), "Error unstaking lp tokens");
+
+        farmers[msg.sender].balance = farmers[msg.sender].balance.sub(lptokens);
+        farmers[msg.sender].last = owing;
+        farmers[msg.sender].total = totalDividends;
+        farmers[msg.sender].round = round;
+
+        farmingTotal = farmingTotal.sub(lptokens);
+    }
+
+    function farmLpClaim() external {
+        if(totalDividends > farmers[msg.sender].total){
+            uint256 owing = _owingRewards(msg.sender);
+
+            owing = owing.add(farmers[msg.sender].remainder);
+            farmers[msg.sender].remainder = 0;
+
+            _transfer(address(this), msg.sender, owing);
+
+            farmers[msg.sender].last = owing;
+            farmers[msg.sender].total = totalDividends;
+            farmers[msg.sender].round = round;
+        }
+    }
+
+    function _farmFunds(uint256 _amount) internal {
+        uint256 available = (_amount.mul(scaling)).add(scaledRemainder);
+        uint256 dividendPerToken = available.div(farmingTotal);
+        scaledRemainder = available.mod(farmingTotal);
+
+        totalDividends = totalDividends.add(dividendPerToken);
+        farmrounds[round] = farmrounds[round.sub(1)].add(dividendPerToken);
+        round = round.add(1);
+    }
+
+
+    function _owingRewards(address account) private returns(uint256) {
+        uint256 remainder = _getremainder(account);
+        uint256 amount = remainder.div(scaling);
+        farmers[account].remainder = farmers[account].remainder.add(remainder.mod(scaling));
+        return amount;
+    }
+
+    function _getremainder(address account) internal view returns(uint256){
+        uint256 remainder = 0;
+        if(farmers[account].round >= 1){
+            uint round = (farmers[account].round).sub(1);
+            remainder = (totalDividends.sub(farmrounds[round])).mul(farmers[account].balance);
+        }
+        return remainder;
+    }
+
+    function getowingRewards(address account) external view returns(uint256) {
+        uint256 remainder = _getremainder(account);
+        uint256 amount = remainder.div(scaling);
+        amount = amount.add(remainder.mod(scaling));
+        amount = amount.add(farmers[account].remainder);
+        return amount;
+    }
+
+    function farmLpBalance(address account) external view returns(uint256){
+        return farmers[account].balance;
+    }
+    
 }
 
 contract GORILLA {
