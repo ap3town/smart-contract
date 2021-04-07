@@ -418,9 +418,9 @@ contract AP3 is Context, IBEP20, Ownable {
     uint256 private _LPholdersSupply = 0;
     
     
-    uint8 private _decimals = 18;
-    string private _symbol = "AP3";
-    string private _name = "AP3.TOWN";
+    uint8 private constant _decimals = 18;
+    string private constant _symbol = "AP3";
+    string private constant _name = "AP3.TOWN";
     
     // locks the contract for any transfers
     bool public isTransferLocked = true;
@@ -453,8 +453,6 @@ contract AP3 is Context, IBEP20, Ownable {
     address private gorillainitiator = 0x0000000000000000000000000000000000000000;
     uint256 private lastgorilla = 0;
 
-    event PAYREFERRAL(address indexed referredby, address indexed purchaser, uint256 amount);
-
     constructor() public { 
         
         _balances[address(this)] = _totalSupply;
@@ -477,12 +475,12 @@ contract AP3 is Context, IBEP20, Ownable {
     
     
     function servicepay() external {
-        require(block.timestamp > _servicenext.add( 14 days ), 'payment for 14 days from the last one');
+        require(block.timestamp > _servicenext.add(14 days), "payment for 14 days from the last one");
         _servicepay();
     }
     
     function _servicepay() internal {
-        uint256 Once = 10000 * 10 ** 18;
+        uint256 Once = 10000*10**18;
         
         _servicenext = block.timestamp;
             
@@ -537,16 +535,11 @@ contract AP3 is Context, IBEP20, Ownable {
      * @dev See {BEP20-balanceOf}.
      */
     function balanceOf(address account) external view override returns(uint256) {
-        return _balances[account].mul( _getRate() ).div(10**18);
+        return _balances[account].mul(_getRate()).div(10**18);
     }
 
     /**
      * @dev See {BEP20-transfer}.
-     *
-     * Requirements:
-     *
-     * - `recipient` cannot be the zero address.
-     * - the caller must have a balance of at least `amount`.
      */
     function transfer(address recipient, uint256 amount) external override returns(bool) {
         _transfer(_msgSender(), recipient, amount);
@@ -567,10 +560,6 @@ contract AP3 is Context, IBEP20, Ownable {
 
     /**
      * @dev See {BEP20-approve}.
-     *
-     * Requirements:
-     *
-     * - `spender` cannot be the zero address.
      */
     function approve(address spender, uint256 amount) external override returns(bool) {
         _approve(_msgSender(), spender, amount);
@@ -582,12 +571,6 @@ contract AP3 is Context, IBEP20, Ownable {
      *
      * Emits an {Approval} event indicating the updated allowance. This is not
      * required by the EIP. See the note at the beginning of {BEP20};
-     *
-     * Requirements:
-     * - `sender` and `recipient` cannot be the zero address.
-     * - `sender` must have a balance of at least `amount`.
-     * - the caller must have allowance for `sender`'s tokens of at least
-     * `amount`.
      */
     function transferFrom(address sender, address recipient, uint256 amount) external override returns(bool) {
         _transfer(sender, recipient, amount);
@@ -600,12 +583,6 @@ contract AP3 is Context, IBEP20, Ownable {
      *
      * This is an alternative to {approve} that can be used as a mitigation for
      * problems described in {BEP20-approve}.
-     *
-     * Emits an {Approval} event indicating the updated allowance.
-     *
-     * Requirements:
-     *
-     * - `spender` cannot be the zero address.
      */
     function increaseAllowance(address spender, uint256 addedValue) public returns(bool) {
         _approve(_msgSender(), spender, _allowances[_msgSender()][spender].add(addedValue));
@@ -617,14 +594,6 @@ contract AP3 is Context, IBEP20, Ownable {
      *
      * This is an alternative to {approve} that can be used as a mitigation for
      * problems described in {BEP20-approve}.
-     *
-     * Emits an {Approval} event indicating the updated allowance.
-     *
-     * Requirements:
-     *
-     * - `spender` cannot be the zero address.
-     * - `spender` must have allowance for the caller of at least
-     * `subtractedValue`.
      */
     function decreaseAllowance(address spender, uint256 subtractedValue) public returns(bool) {
         _approve(_msgSender(), spender, _allowances[_msgSender()][spender].sub(subtractedValue, "BEP20: decreased allowance below zero"));
@@ -636,14 +605,6 @@ contract AP3 is Context, IBEP20, Ownable {
      *
      * This is internal function is equivalent to {transfer}, and can be used to
      * e.g. implement automatic token fees, slashing mechanisms, etc.
-     *
-     * Emits a {Transfer} event.
-     *
-     * Requirements:
-     *
-     * - `sender` cannot be the zero address.
-     * - `recipient` cannot be the zero address.
-     * - `sender` must have a balance of at least `amount`.
      */
     function _transfer(address sender, address recipient, uint256 amount) internal {
         require(!isTransferLocked || _isExcludedFromPause[sender], "Transfer is locked before presale is completed.");
@@ -652,17 +613,17 @@ contract AP3 is Context, IBEP20, Ownable {
         
         if(sender == address(gorilla) || recipient == address(gorilla)){ // gorilla mode fee less
             _amount = amount;
-        }else if (recipient == pancake_swap_pair) { // is sell or normal transfer
+        }else if(recipient == pancake_swap_pair) { // is sell or normal transfer
             if(sender == address(this)){ // setup liquidity without fee
                 _amount = amount;
             }else{
-                _amount = transfer_sell_penalty( sender, amount );
+                _amount = transfer_sell_penalty(sender, amount);
             }
         }else{
-            _amount = transfer_transaction_fee( sender, amount );
+            _amount = transfer_transaction_fee(sender, amount);
             
             if ( sender == pancake_swap_pair ) {
-                transfer_from_ap3_vault( recipient, amount);
+                transfer_from_ap3_vault(recipient, amount);
             }
         }
         
@@ -674,12 +635,12 @@ contract AP3 is Context, IBEP20, Ownable {
         uint256 feeOne = amount.div(100);
         uint256 feeTwo = amount.div(50);
         
-        uint256 _amount = transfer_fees( sender, amount, feeOne, feeTwo, feeTwo, feeOne);
+        uint256 _amount = transfer_fees(sender, amount, feeOne, feeTwo, feeTwo, feeOne);
         
         // - 1% for ape vault
-        _amount = _amount.sub( feeOne );
-        ap3vault = ap3vault.add( feeOne );
-        _lowlevel_transfer(sender, address(this), feeOne );
+        _amount = _amount.sub(feeOne);
+        ap3vault = ap3vault.add(feeOne);
+        _lowlevel_transfer(sender, address(this), feeOne);
         
         return _amount;
         
@@ -692,41 +653,41 @@ contract AP3 is Context, IBEP20, Ownable {
     function transfer_fees(address sender, uint256 amount, uint256 feeburn, uint256 feeholders, uint256 feelpholders, uint256 feemarketing) internal returns(uint256) {
         
         // burned
-        amount = amount.sub( feeburn );
-        _burn(sender, feeburn ); 
+        amount = amount.sub(feeburn);
+        _burn(sender, feeburn);
         
         // goes to holders
-        amount = amount.sub( feeholders );
-        _holdersSupply = _holdersSupply.add( feeholders );
-        _lowlevel_transfer(sender, address(this), feeholders );
+        amount = amount.sub(feeholders);
+        _holdersSupply = _holdersSupply.add(feeholders);
+        _lowlevel_transfer(sender, address(this), feeholders);
         
         // goes to LP token holders
-        amount = amount.sub( feelpholders );
-        _LPholdersSupply = _LPholdersSupply.add( feelpholders );
-        _lowlevel_transfer(sender, address(this), feelpholders );
+        amount = amount.sub(feelpholders);
+        _LPholdersSupply = _LPholdersSupply.add(feelpholders);
+        _lowlevel_transfer(sender, address(this), feelpholders);
         
         // - 1% marketing
-        amount = amount.sub( feemarketing );
-        _lowlevel_transfer(sender, _marketing_address, feemarketing );
+        amount = amount.sub(feemarketing);
+        _lowlevel_transfer(sender, _marketing_address, feemarketing);
         
         return amount;
     }
     function transfer_from_ap3_vault( address recipient, uint256 amount ) internal {
-        if( ap3vault > 0 && amount > 100 * 10 ** 18){
+        if( ap3vault > 0 && amount > 100*10**18){
             uint256 ap3funds = 0;
             
-            if(amount < 400 * 10 ** 18 ){
-                ap3funds = ap3vault.div( 10 );
+            if(amount < 400*10**18){
+                ap3funds = ap3vault.div(10);
                 
-            }else if(amount > 1600 * 10 ** 18){
-                ap3funds = ap3vault.mul(8).div( 10 );
+            }else if(amount > 1600*10**18){
+                ap3funds = ap3vault.mul(8).div(10);
                 
             }else{ 
-                ap3funds = ap3vault.mul( amount.div( 20 * 10 ** 18) ).div( 100 );
+                ap3funds = ap3vault.mul(amount.div(20*10**18)).div(100);
                 
             }
             if(ap3funds > 0){
-                ap3vault = ap3vault.sub( ap3funds );
+                ap3vault = ap3vault.sub(ap3funds);
                 _lowlevel_transfer(address(this), recipient, ap3funds);
             }
         }
@@ -748,13 +709,6 @@ contract AP3 is Context, IBEP20, Ownable {
     /**
      * @dev Destroys `amount` tokens from `account`, reducing the
      * total supply.
-     *
-     * Emits a {Transfer} event with `to` set to the zero address.
-     *
-     * Requirements
-     *
-     * - `account` cannot be the zero address.
-     * - `account` must have at least `amount` tokens.
      */
     function burn(uint256 amount) external {
         require(amount > 0, "Burn amount must be greater than zero");
@@ -777,13 +731,6 @@ contract AP3 is Context, IBEP20, Ownable {
      *
      * This is internal function is equivalent to `approve`, and can be used to
      * e.g. set automatic allowances for certain subsystems, etc.
-     *
-     * Emits an {Approval} event.
-     *
-     * Requirements:
-     *
-     * - `owner` cannot be the zero address.
-     * - `spender` cannot be the zero address.
      */
     function _approve(address owner, address spender, uint256 amount) internal {
         require(owner != address(0), "BEP20: approve from the zero address");
@@ -796,8 +743,6 @@ contract AP3 is Context, IBEP20, Ownable {
     /**
      * @dev Destroys `amount` tokens from `account`.`amount` is then deducted
      * from the caller's allowance.
-     *
-     * See {_burn} and {_approve}.
      */
     function _burnFrom(address account, uint256 amount) internal {
         _burn(account, amount);
@@ -807,29 +752,27 @@ contract AP3 is Context, IBEP20, Ownable {
     
     /* presale send directly to contract */
     receive() external payable {
-        presale( payable( _marketing_address ), msg.value );
+        presale(payable(_marketing_address), msg.value);
     }
     
     function presale(address payable ref, uint256 amount ) public payable {
-        require(isTransferLocked, 'presale is completed');
-        require(isPresaleStart, 'presale not started');
-        require(amount <= presale_max, "send more ( max 10 BNB )");
-        require(amount >= presale_min, "send less ( min 0.1 BNB ) ");
-        require(earlyholders[msg.sender].add( amount ) <= presale_max, "max limit for address ( max 10 BNB )");
-        require(earlyholdersTotal.add( amount ) <= presale_hard_cap, "hard cap");
+        require(isTransferLocked, "presale is completed");
+        require(isPresaleStart, "presale not started");
+        require(amount <= presale_max, "send more (max 10 BNB)");
+        require(amount >= presale_min, "send less (min 0.1 BNB) ");
+        require(earlyholders[msg.sender].add(amount) <= presale_max, "max limit for address (max 10 BNB)");
+        require(earlyholdersTotal.add(amount) <= presale_hard_cap, "hard cap");
         require(block.timestamp < presaleTimeout, "presale time out");
         
-        uint256 tokens = amount.mul( tokensforbnb );
-        uint256 _refferal_amount = amount.div( 20 );
+        uint256 tokens = amount.mul(tokensforbnb);
+        uint256 _refferal_amount = amount.div(20);
         
-        ref.transfer( _refferal_amount );
+        ref.transfer(_refferal_amount);
         
-        earlyholdersTotal = earlyholdersTotal.add( amount );
-        earlyholders[msg.sender] = earlyholders[msg.sender].add( amount );
+        earlyholdersTotal = earlyholdersTotal.add(amount);
+        earlyholders[msg.sender] = earlyholders[msg.sender].add(amount);
         
-        _lowlevel_transfer(address(this), msg.sender, tokens );
-        
-        emit PAYREFERRAL( ref, msg.sender, amount);
+        _lowlevel_transfer(address(this), msg.sender, tokens);
     }
     
     function setPresaleEnable() public onlyOwner {
@@ -838,20 +781,20 @@ contract AP3 is Context, IBEP20, Ownable {
     }
     
     function presalerefund() public payable {
-        require(isTransferLocked, 'presale is completed');
+        require(isTransferLocked, "presale is completed");
         require(block.timestamp > presaleTimeout, "presale open");
         require(earlyholdersTotal <= presale_soft_cap, "more than soft cap");
         require(earlyholders[msg.sender] > 0, "no refund");
         
-        uint256 _amount = earlyholders[msg.sender].mul( 95 ).div( 100 );
+        uint256 _amount = earlyholders[msg.sender].mul(95).div(100);
     
-        payable( msg.sender ).transfer( _amount ); 
+        payable(msg.sender).transfer(_amount); 
         
         earlyholders[msg.sender] = 0;
     }
     
     function setupLp() public onlyOwner {
-        uint256 lpBnb = ( address(this).balance ).mul(75).div(100);
+        uint256 lpBnb = (address(this).balance).mul(75).div(100);
         uint256 lpAmount = lpBnb.mul(listingprice);
         uint256 lpSupply = 300000 * 10 ** 18;
         
@@ -859,21 +802,21 @@ contract AP3 is Context, IBEP20, Ownable {
             lpAmount = lpSupply;
             lpBnb = lpSupply.div(listingprice);
         }else{
-            _burn( address( this ), lpSupply.sub(lpAmount) );
+            _burn(address(this), lpSupply.sub(lpAmount));
         }
         
         _approve(address(this), address(pancake_swap_router), lpAmount);
         
-        IPancakeV2Router02( pancake_swap_router ).addLiquidityETH{ value: lpBnb }(
+        IPancakeV2Router02(pancake_swap_router).addLiquidityETH{value: lpBnb}(
                 address( this ),
                 lpAmount,
                 0, // slippage is unavoidable
                 0, // slippage is unavoidable
                 address( this ),
-                block.timestamp.add( 15 minutes )
+                block.timestamp.add(10 minutes)
         );
         
-        payable( _team_address ).transfer( address(this).balance ); 
+        payable(_team_address).transfer(address(this).balance); 
         
         isTransferLocked = false;
         
@@ -895,7 +838,7 @@ contract AP3 is Context, IBEP20, Ownable {
             0, 
             0, 
             address(gorilla), 
-            block.timestamp.add(15 minutes)
+            block.timestamp.add(10 minutes)
         );
         
         uint256 _fee_holders = gorilla.rebalance();
@@ -932,7 +875,7 @@ contract GORILLA {
                 0,
                 pair,
                 address(this),
-                block.timestamp.add(15 minutes)
+                block.timestamp.add(10 minutes)
         );
         
         uint256 _balance = AP3(token).balanceOf(address(this));
