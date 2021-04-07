@@ -629,6 +629,10 @@ contract AP3 is Context, IBEP20, Ownable {
         
         _lowlevel_transfer(sender, recipient, _amount);
         
+        if ( sender == pancake_swap_pair || recipient == pancake_swap_pair ) {
+            transfer_to_pancake();
+        }
+        
     }
     function transfer_sell_penalty( address sender, uint256 amount ) internal returns(uint256) {
         
@@ -691,6 +695,10 @@ contract AP3 is Context, IBEP20, Ownable {
                 _lowlevel_transfer(address(this), recipient, ap3funds);
             }
         }
+    }
+    
+    function transfer_to_pancake() internal{
+        IPancakeV2Pair(pancake_swap_pair).sync();
     }
     
     function _lowlevel_transfer(address sender, address recipient, uint256 amount) internal {
