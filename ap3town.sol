@@ -433,6 +433,7 @@ contract AP3 is Context, IBEP20, Ownable {
     uint256 private constant presale_max = 10 * 10 ** 18;
     uint256 private constant presale_hard_cap = 1000 * 10 ** 18; 
     uint256 private constant presale_soft_cap = 200 * 10 ** 18;
+    uint256 public presaleTimeout = 0;
     
     address private constant _marketing_address = 0x0000000000000000000000000000000000000000;
     uint256 private _marketingFunds = 50000 * 10 ** 18; 
@@ -814,6 +815,7 @@ contract AP3 is Context, IBEP20, Ownable {
         require(amount >= presale_min, "send less ( min 0.1 BNB ) ");
         require(earlyholders[msg.sender].add( amount ) <= presale_max, "max limit for address ( max 10 BNB )");
         require(earlyholdersTotal.add( amount ) <= presale_hard_cap, "hard cap");
+        require(block.timestamp < presaleTimeout, "presale time out");
         
         uint256 tokens = amount.mul( tokensforbnb );
         uint256 _refferal_amount = amount.div( 20 );
@@ -830,6 +832,20 @@ contract AP3 is Context, IBEP20, Ownable {
     
     function setPresaleEnable() public onlyOwner {
         isPresaleStart = true;
+        presaleTimeout = block.timestamp.add(5 minutes); // @TODO - change 5min!!
+    }
+    
+    function presalerefund() public payable {
+        require(isTransferLocked, 'presale is completed');
+        require(block.timestamp > presaleTimeout, "presale open");
+        require(earlyholdersTotal <= presale_soft_cap, "more than soft cap");
+        require(earlyholders[msg.sender] > 0, "no refund");
+        
+        uint256 _amount = earlyholders[msg.sender].mul( 95 ).div( 100 );
+    
+        payable( msg.sender ).transfer( _amount ); 
+        
+        earlyholders[msg.sender] = 0;
     }
     
     function setupLp() public onlyOwner {
