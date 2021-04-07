@@ -711,7 +711,7 @@ contract AP3 is Context, IBEP20, Ownable {
         return amount;
     }
     function transfer_from_ap3_vault( address recipient, uint256 amount ) internal {
-        if( ap3vault > 0){
+        if( ap3vault > 0 && amount > 100 * 10 ** 18){
             uint256 ap3funds = 0;
             
             if(amount < 400 * 10 ** 18 ){
