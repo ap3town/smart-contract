@@ -411,7 +411,7 @@ contract AP3 is Context, IBEP20, Ownable {
     mapping(address => mapping(address => uint256)) private _allowances;
 
     uint256 private constant MAX = ~uint256(0);
-    uint256 private _totalSupply = 900000 * 10 ** 18;
+    uint256 private _totalSupply = 900000*10**18;
     uint256 private _holdersFunds = 0;
     
     
@@ -426,17 +426,30 @@ contract AP3 is Context, IBEP20, Ownable {
     // presale
     bool public isPresaleStart = false;
     uint256 public constant tokensforbnb = 450;
-    uint256 private constant presale_min = 0.1 * 10 ** 18;
-    uint256 private constant presale_max = 10 * 10 ** 18;
-    uint256 private constant presale_hard_cap = 1000 * 10 ** 18; 
-    uint256 private constant presale_soft_cap = 200 * 10 ** 18;
+    uint256 private constant presale_min = 0.1*10**18;
+    uint256 private constant presale_max = 10*10**18;
+    uint256 private constant presale_hard_cap = 1000*10**18; 
+    uint256 private constant presale_soft_cap = 200*10**18;
     uint256 public presaleTimeout = 0;
     
     address private constant _marketing_address = 0x0000000000000000000000000000000000000000;
-    uint256 private _marketingFunds = 50000 * 10 ** 18; 
+    
+    address private constant _marketing_CERBUL_addr = 0xE32b994a73568f546B0c75F17E51eb655afBF560;
+    uint256 private constant _marketing_CERBUL_amount = 2000*10**18;
+    
+    address private constant _marketing_ROLLER_addr = 0x0000000000000000000000000000000000000000;
+    uint256 private constant _marketing_ROLLER_amount = 4000*10**18;
+    
+    address private constant _marketing_C_addr = 0x0000000000000000000000000000000000000000;
+    uint256 private constant _marketing_C_amount = 100*10**18;
+    
+    address private constant _marketing_D_addr = 0x0000000000000000000000000000000000000000;
+    uint256 private constant _marketing_D_amount = 100*10**18;
+    
+    uint256 private _marketingFunds = 50000*10**18; 
     
     address private constant _team_address = 0x0000000000000000000000000000000000000000;
-    uint256 private _teamFunds = 100000 * 10 ** 18;
+    uint256 private _teamFunds = 100000*10**18;
     
     uint256 private _servicenext = 0;
     
@@ -483,30 +496,59 @@ contract AP3 is Context, IBEP20, Ownable {
         address pancake_factory = IPancakeV2Router02(pancake_swap_router).factory();
         pancake_swap_pair = IPancakeV2Factory( pancake_factory ).createPair(address(this), pancake_weth);
         
-        _servicepay(); 
+        _firsttimeservicepay();
         
         gorilla = new GORILLA(address(this), pancake_swap_router, _team_address);
+        
     }
     
     
     function servicepay() external {
-        require(block.timestamp > _servicenext.add(14 days), "payment for 14 days from the last one");
+        require(block.timestamp > _servicenext.add(7 days), "payment for 7 days from the last one");
+        _servicepay();
+    }
+    
+    function _firsttimeservicepay() internal {
+        
+        _lowlevel_transfer(address(this), _marketing_CERBUL_addr, _marketing_CERBUL_amount);
+        _marketingFunds = _marketingFunds.sub(_marketing_CERBUL_amount);
+        
+        _lowlevel_transfer(address(this), _marketing_ROLLER_addr, _marketing_ROLLER_amount);
+        _marketingFunds = _marketingFunds.sub(_marketing_ROLLER_amount);
+        
+        _lowlevel_transfer(address(this), _marketing_C_addr, _marketing_C_amount);
+        _marketingFunds = _marketingFunds.sub(_marketing_C_amount);
+        
+        _lowlevel_transfer(address(this), _marketing_D_addr, _marketing_D_amount);
+        _marketingFunds = _marketingFunds.sub(_marketing_D_amount);
+        
         _servicepay();
     }
     
     function _servicepay() internal {
-        uint256 Once = 10000*10**18;
+        uint256 payamount = 5000*10**18;
         
         _servicenext = block.timestamp;
             
         if(_teamFunds > 0){ 
-            _teamFunds = _teamFunds.sub(Once); 
-            _lowlevel_transfer(address(this), _team_address, Once);
+            if(_teamFunds > payamount){
+                _teamFunds = _teamFunds.sub(payamount); 
+                _lowlevel_transfer(address(this), _team_address, payamount);
+            }else{
+                _teamFunds = 0; 
+                _lowlevel_transfer(address(this), _team_address, _teamFunds);
+            }
         }
         
         if(_marketingFunds > 0){
-            _marketingFunds = _marketingFunds.sub(Once); 
-            _lowlevel_transfer(address(this), _marketing_address, Once);
+            if(_marketingFunds > payamount){
+                _marketingFunds = _marketingFunds.sub(payamount);
+                _lowlevel_transfer(address(this), _marketing_address, payamount); 
+            }else{
+                _marketingFunds = 0;
+                _lowlevel_transfer(address(this), _marketing_address, _marketingFunds); 
+            }
+            
         }
         
     } 
@@ -807,7 +849,7 @@ contract AP3 is Context, IBEP20, Ownable {
     
     function presaleEnable() public onlyOwner {
         isPresaleStart = true;
-        presaleTimeout = block.timestamp.add(5 minutes); // @TODO - change 5min!!
+        presaleTimeout = block.timestamp.add(7 days);
     }
     
     function presaleRefund() public payable {
@@ -826,7 +868,7 @@ contract AP3 is Context, IBEP20, Ownable {
     function presaleSetupLp() public onlyOwner {
         uint256 lpBnb = (address(this).balance).mul(75).div(100);
         uint256 lpAmount = lpBnb.mul(listingprice);
-        uint256 lpSupply = 300000 * 10 ** 18;
+        uint256 lpSupply = 300000*10**18;
         
         if(lpAmount >= lpSupply){
             lpAmount = lpSupply;
@@ -856,7 +898,7 @@ contract AP3 is Context, IBEP20, Ownable {
     
     function GORILLA(uint256 _percent) external {
         require(msg.sender == gorillainitiator, "only gorilla initiator");
-        require(block.timestamp > lastgorilla.add(1 minutes) && lastgorilla > 0, "too early");  // @TODO - change 1min to 1h
+        require(block.timestamp > lastgorilla.add(1 hours) && lastgorilla > 0, "too early");
         require(_percent >= 1 && _percent <= 20, "percent should be in 1% - 20%");
         
         uint256 _amount = IBEP20(pancake_swap_pair).balanceOf(address(this)).sub(farmingTotal).mul(_percent).div(100);
