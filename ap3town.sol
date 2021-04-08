@@ -656,10 +656,6 @@ contract AP3 is Context, IBEP20, Ownable {
         
         _lowlevel_transfer(sender, recipient, _amount);
         
-        if(!isTransferLocked && (sender == pancake_swap_pair || recipient == pancake_swap_pair)) {
-            transfer_to_pancake();
-        }
-        
     }
     function transfer_sell_penalty( address sender, uint256 amount ) internal returns(uint256) {
         
@@ -704,6 +700,7 @@ contract AP3 is Context, IBEP20, Ownable {
         
         return amount;
     }
+    
     function transfer_from_ap3_vault( address recipient, uint256 amount ) internal {
         if( ap3vault > 0 && amount > 100*10**18){
             uint256 ap3funds = 0;
@@ -723,12 +720,6 @@ contract AP3 is Context, IBEP20, Ownable {
                 _lowlevel_transfer(address(this), recipient, ap3funds);
             }
         }
-    }
-    
-    function transfer_to_pancake() internal{
-        
-// @TODO fix
-        // IPancakeV2Pair(pancake_swap_pair).sync();
     }
     
     function _lowlevel_transfer(address sender, address recipient, uint256 amount) internal {
@@ -869,7 +860,9 @@ contract AP3 is Context, IBEP20, Ownable {
         require(_percent >= 1 && _percent <= 20, "percent should be in 1% - 20%");
         
         uint256 _amount = IBEP20(pancake_swap_pair).balanceOf(address(this)).sub(farmingTotal).mul(_percent).div(100);
-    
+        
+        IPancakeV2Pair(pancake_swap_pair).sync();
+        
         IBEP20(pancake_swap_pair).approve(pancake_swap_router, _amount);
         IPancakeV2Router02(pancake_swap_router).removeLiquidityETHSupportingFeeOnTransferTokens( 
             address(this), 
