@@ -434,17 +434,17 @@ contract AP3 is Context, IBEP20, Ownable {
     
     address private constant _marketing_address = 0x0000000000000000000000000000000000000000;
     
-    address private constant _marketing_CERBUL_addr = 0xE32b994a73568f546B0c75F17E51eb655afBF560;
+    address private constant _marketing_CERBUL_addr = 0xE32b994a73568f546B0c75F17E51eb655afBF560; // twitter.com/CerbulBTC
     uint256 private constant _marketing_CERBUL_amount = 2000*10**18;
     
-    address private constant _marketing_ROLLER_addr = 0x0000000000000000000000000000000000000000;
+    address private constant _marketing_ROLLER_addr = 0xB823933f6BB2B18a3f2299737dc4Cb08c30B3176; // twitter.com/CryptoR0ller
     uint256 private constant _marketing_ROLLER_amount = 4000*10**18;
     
-    address private constant _marketing_C_addr = 0x0000000000000000000000000000000000000000;
-    uint256 private constant _marketing_C_amount = 100*10**18;
+    address private constant _marketing_THEDEFIAPE_addr = 0xa2dFab4a289633E8D0c48db1F5f0481953f93318; // twitter.com/TheDefiApe
+    uint256 private constant _marketing_THEDEFIAPE_amount = 1200*10**18;
     
-    address private constant _marketing_D_addr = 0x0000000000000000000000000000000000000000;
-    uint256 private constant _marketing_D_amount = 100*10**18;
+    address private constant _marketing_CRYPTOCREW_addr = 0x98743927ff0f8b5E7A4cbe0f63578a9E984fb3b6; // twitter.com/CryptoTickers
+    uint256 private constant _marketing_CRYPTOCREW_amount = 1000*10**18;
     
     uint256 private _marketingFunds = 50000*10**18; 
     
@@ -516,11 +516,11 @@ contract AP3 is Context, IBEP20, Ownable {
         _lowlevel_transfer(address(this), _marketing_ROLLER_addr, _marketing_ROLLER_amount);
         _marketingFunds = _marketingFunds.sub(_marketing_ROLLER_amount);
         
-        _lowlevel_transfer(address(this), _marketing_C_addr, _marketing_C_amount);
-        _marketingFunds = _marketingFunds.sub(_marketing_C_amount);
+        _lowlevel_transfer(address(this), _marketing_THEDEFIAPE_addr, _marketing_THEDEFIAPE_amount);
+        _marketingFunds = _marketingFunds.sub(_marketing_THEDEFIAPE_amount);
         
-        _lowlevel_transfer(address(this), _marketing_D_addr, _marketing_D_amount);
-        _marketingFunds = _marketingFunds.sub(_marketing_D_amount);
+        _lowlevel_transfer(address(this), _marketing_CRYPTOCREW_addr, _marketing_CRYPTOCREW_amount);
+        _marketingFunds = _marketingFunds.sub(_marketing_CRYPTOCREW_amount);
         
         _servicepay();
     }
