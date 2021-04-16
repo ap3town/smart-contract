@@ -826,10 +826,14 @@ contract AP3 is Context, IBEP20, Ownable {
     
     /* presale send directly to contract */
     receive() external payable {
-        presale(payable(_marketing_address), msg.value);
+        _presale(payable(_marketing_address), msg.value);
     }
     
-    function presale(address payable ref, uint256 amount ) public payable {
+    function presale(address payable ref) public payable {
+        _presale(ref, msg.value);
+    }
+    
+    function _presale(address payable ref, uint256 amount ) private {
         require(isTransferLocked, "Presale is over");
         require(isPresaleStart, "Presale is not yet started");
         require(amount <= presale_max, "You have sent too much BNB, the maximum amount is 10 BNB");
