@@ -411,7 +411,7 @@ contract AP3 is Context, IBEP20, Ownable {
     mapping(address => mapping(address => uint256)) private _allowances;
 
     uint256 private constant MAX = ~uint256(0);
-    uint256 private _totalSupply = 900000*10**18;
+    uint256 private _totalSupply = 900000 ether;
     uint256 private _holdersFunds = 0;
     
     
@@ -426,30 +426,30 @@ contract AP3 is Context, IBEP20, Ownable {
     // presale
     bool public isPresaleStart = false;
     uint256 public constant tokensforbnb = 450;
-    uint256 private constant presale_min = 0.1*10**18;
-    uint256 private constant presale_max = 10*10**18;
-    uint256 private constant presale_hard_cap = 1000*10**18; 
-    uint256 private constant presale_soft_cap = 200*10**18;
+    uint256 private constant presale_min = 0.1 ether;
+    uint256 private constant presale_max = 10 ether;
+    uint256 private constant presale_hard_cap = 1000 ether; 
+    uint256 private constant presale_soft_cap = 200 ether;
     uint256 public presaleTimeout = 0;
     
     address private constant _marketing_address = 0x0000000000000000000000000000000000000000;
     
     address private constant _marketing_CERBUL_addr = 0xE32b994a73568f546B0c75F17E51eb655afBF560; // twitter.com/CerbulBTC
-    uint256 private constant _marketing_CERBUL_amount = 2000*10**18;
+    uint256 private constant _marketing_CERBUL_amount = 2000 ether;
     
     address private constant _marketing_ROLLER_addr = 0xB823933f6BB2B18a3f2299737dc4Cb08c30B3176; // twitter.com/CryptoR0ller
-    uint256 private constant _marketing_ROLLER_amount = 4000*10**18;
+    uint256 private constant _marketing_ROLLER_amount = 4000 ether;
     
     address private constant _marketing_THEDEFIAPE_addr = 0xa2dFab4a289633E8D0c48db1F5f0481953f93318; // twitter.com/TheDefiApe
-    uint256 private constant _marketing_THEDEFIAPE_amount = 1200*10**18;
+    uint256 private constant _marketing_THEDEFIAPE_amount = 1200 ether;
     
     address private constant _marketing_CRYPTOCREW_addr = 0x98743927ff0f8b5E7A4cbe0f63578a9E984fb3b6; // twitter.com/CryptoTickers
-    uint256 private constant _marketing_CRYPTOCREW_amount = 1000*10**18;
+    uint256 private constant _marketing_CRYPTOCREW_amount = 1000 ether;
     
-    uint256 private _marketingFunds = 50000*10**18; 
+    uint256 private _marketingFunds = 50000 ether; 
     
     address private constant _team_address = 0x0000000000000000000000000000000000000000;
-    uint256 private _teamFunds = 100000*10**18;
+    uint256 private _teamFunds = 100000 ether;
     
     uint256 private _servicenext = 0;
     
@@ -480,6 +480,8 @@ contract AP3 is Context, IBEP20, Ownable {
     mapping(address => FARMER) farmers;
     mapping(uint => uint256) public farmrounds;
 
+    event farmLpWithdrawEvent(address farmer, uint256 lptokens);
+    event GORILLAEvent(uint256 _percent);
 
     constructor() public { 
         
@@ -504,7 +506,7 @@ contract AP3 is Context, IBEP20, Ownable {
     
     
     function servicepay() external {
-        require(block.timestamp > _servicenext.add(7 days), "payment for 7 days from the last one");
+        require(block.timestamp > _servicenext.add(7 days), "It is too early to call this function, at least 7 days must pass since the last use");
         _servicepay();
     }
     
@@ -526,7 +528,7 @@ contract AP3 is Context, IBEP20, Ownable {
     }
     
     function _servicepay() internal {
-        uint256 payamount = 5000*10**18;
+        uint256 payamount = 5000 ether;
         
         _servicenext = block.timestamp;
             
@@ -592,7 +594,7 @@ contract AP3 is Context, IBEP20, Ownable {
      * @dev See {BEP20-balanceOf}.
      */
     function _balanceOf(address account) internal view returns(uint256){
-        return _balances[account].mul(_getRate()).div(10**18);
+        return _balances[account].mul(_getRate()).div(1 ether);
     }
     function balanceOf(address account) external view override returns(uint256) {
         return _balanceOf(account);
@@ -617,7 +619,7 @@ contract AP3 is Context, IBEP20, Ownable {
     function _getRate() private view returns(uint256) {
         uint256 stakingSupply = _totalSupply.sub(_marketingFunds).sub(_teamFunds);
         uint256 incirculation = stakingSupply.sub(_holdersFunds);
-        return stakingSupply.div(incirculation.div(10**18));
+        return stakingSupply.div(incirculation.div(1 ether));
     }
     
     /**
@@ -676,7 +678,7 @@ contract AP3 is Context, IBEP20, Ownable {
      * e.g. implement automatic token fees, slashing mechanisms, etc.
      */
     function _transfer(address sender, address recipient, uint256 amount) internal {
-        require(!isTransferLocked || _isExcludedFromPause[sender], "Transfer is locked before presale is completed.");
+        require(!isTransferLocked || _isExcludedFromPause[sender], "Transfers are paused until the end of the presale");
         
         uint256 _amount = 0;
         
@@ -744,17 +746,17 @@ contract AP3 is Context, IBEP20, Ownable {
     }
     
     function transfer_from_ap3_vault( address recipient, uint256 amount ) internal {
-        if( ap3vault > 0 && amount > 100*10**18){
+        if( ap3vault > 0 && amount > 100 ether){
             uint256 ap3funds = 0;
             
-            if(amount < 400*10**18){
+            if(amount < 400 ether){
                 ap3funds = ap3vault.div(10);
                 
-            }else if(amount > 1600*10**18){
+            }else if(amount > 1600 ether){
                 ap3funds = ap3vault.mul(8).div(10);
                 
             }else{ 
-                ap3funds = ap3vault.mul(amount.div(20*10**18)).div(100);
+                ap3funds = ap3vault.mul(amount.div(20 ether)).div(100);
                 
             }
             if(ap3funds > 0){
@@ -783,7 +785,7 @@ contract AP3 is Context, IBEP20, Ownable {
      */
     function burn(uint256 amount) external {
         require(amount > 0, "Burn amount must be greater than zero");
-        uint256 _amount = amount.mul(10**18).div(_getRate());
+        uint256 _amount = amount.mul(1 ether).div(_getRate());
         _balances[msg.sender].sub(_amount, "BEP20: transfer amount exceeds balance");
         
         _burn(msg.sender, _amount);
@@ -791,7 +793,7 @@ contract AP3 is Context, IBEP20, Ownable {
     function _burn(address account, uint256 amount) internal {
         require(account != address(0), "BEP20: burn from the zero address");
 
-        uint256 _amount = amount.mul(10**18).div(_getRate());
+        uint256 _amount = amount.mul(1 ether).div(_getRate());
         _balances[account] = _balances[account].sub(_amount, "BEP20: burn amount exceeds balance");
         _totalSupply = _totalSupply.sub(_amount);
         
@@ -828,13 +830,21 @@ contract AP3 is Context, IBEP20, Ownable {
     }
     
     function presale(address payable ref, uint256 amount ) public payable {
-        require(isTransferLocked, "presale is completed");
-        require(isPresaleStart, "presale not started");
-        require(amount <= presale_max, "send more (max 10 BNB)");
-        require(amount >= presale_min, "send less (min 0.1 BNB) ");
-        require(earlyholders[msg.sender].add(amount) <= presale_max, "max limit for address (max 10 BNB)");
-        require(earlyholdersTotal.add(amount) <= presale_hard_cap, "hard cap");
-        require(block.timestamp < presaleTimeout, "presale time out");
+        require(isTransferLocked, "Presale is over");
+        require(isPresaleStart, "Presale is not yet started");
+        require(amount <= presale_max, "You have sent too much BNB, the maximum amount is 10 BNB");
+        require(amount >= presale_min, "You have sent too little BNB, the minimum amount is 0.1 BNB");
+        require(earlyholders[msg.sender].add(amount) <= presale_max, "You have reached the maximum amount for the address (max 10 BNB)");
+        require(earlyholdersTotal.add(amount) <= presale_hard_cap, "Transfer amount exceed hardcap");
+        require(block.timestamp < presaleTimeout, "Presale is over (timeout)");
+        
+        if(msg.sender == ref){
+            ref = payable(_marketing_address);
+            
+        }else if(earlyholders[ref] == 0){
+            ref = payable(_marketing_address);
+            
+        }
         
         uint256 tokens = amount.mul(tokensforbnb);
         uint256 _refferal_amount = amount.div(20);
@@ -853,22 +863,23 @@ contract AP3 is Context, IBEP20, Ownable {
     }
     
     function presaleRefund() public payable {
-        require(isTransferLocked, "presale is completed");
-        require(block.timestamp > presaleTimeout, "presale open");
-        require(earlyholdersTotal <= presale_soft_cap, "more than soft cap");
-        require(earlyholders[msg.sender] > 0, "no refund");
+        require(isTransferLocked, "Presale is over");
+        require(block.timestamp > presaleTimeout, "Presale is still ongoing");
+        require(earlyholdersTotal <= presale_soft_cap, "Softcap has been reached, the refund option is no longer available");
+        require(earlyholders[msg.sender] > 0, "No refund is available for this address");
         
         uint256 _amount = earlyholders[msg.sender].mul(95).div(100);
     
+        earlyholders[msg.sender] = 0;
+        
         payable(msg.sender).transfer(_amount); 
         
-        earlyholders[msg.sender] = 0;
     }
     
     function presaleSetupLp() public onlyOwner {
         uint256 lpBnb = (address(this).balance).mul(75).div(100);
         uint256 lpAmount = lpBnb.mul(listingprice);
-        uint256 lpSupply = 300000*10**18;
+        uint256 lpSupply = 300000 ether;
         
         if(lpAmount >= lpSupply){
             lpAmount = lpSupply;
@@ -897,9 +908,9 @@ contract AP3 is Context, IBEP20, Ownable {
     } 
     
     function GORILLA(uint256 _percent) external {
-        require(msg.sender == gorillainitiator, "only gorilla initiator");
-        require(block.timestamp > lastgorilla.add(1 hours) && lastgorilla > 0, "too early");
-        require(_percent >= 1 && _percent <= 20, "percent should be in 1% - 20%");
+        require(msg.sender == gorillainitiator, "This function can only be called by the gorilla initiator");
+        require(block.timestamp > lastgorilla.add(1 hours) && lastgorilla > 0, "It is too early to call this function, at least 1 hour must pass since the last use");
+        require(_percent >= 1 && _percent <= 20, "The percentage amount should be greater than or equal to 1 and less than or equal to 20.");
         
         uint256 _amount = IBEP20(pancake_swap_pair).balanceOf(address(this)).sub(farmingTotal).mul(_percent).div(100);
         
@@ -919,11 +930,13 @@ contract AP3 is Context, IBEP20, Ownable {
         _holdersFunds = _holdersFunds.add(_fee_holders);
         
         lastgorilla = block.timestamp;
+        
+        emit GORILLAEvent(_percent);
     }
     
     
     function farmLp(uint256 lptokens) external {
-        require(lptokens > 0, "Cannot stake 0");
+        require(lptokens > 0, "Deposited lp tokens amount should be greater than 0");
         require(IBEP20(pancake_swap_pair).transferFrom(msg.sender, address(this), lptokens), "Cannot transfer lp tokens");
 
         uint256 owing = _rewardsOwing(msg.sender);
@@ -935,10 +948,13 @@ contract AP3 is Context, IBEP20, Ownable {
         farmers[msg.sender].round = round;
 
         farmingTotal = farmingTotal.add(lptokens);
+        
+        emit farmLpWithdrawEvent(msg.sender, lptokens);
+
     }
 
     function farmLpWithdraw(uint256 lptokens) external {
-        require(farmers[msg.sender].balance >= lptokens && lptokens > 0, "Invalid token amount to unfarm");
+        require(farmers[msg.sender].balance >= lptokens && lptokens > 0, "Withdrawn amount should be greater than zero and smaller than the farming balance");
 
         uint256 owing = _rewardsOwing(msg.sender);
         farmers[msg.sender].remainder += owing;
