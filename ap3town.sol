@@ -432,7 +432,7 @@ contract AP3 is Context, IBEP20, Ownable {
     uint256 private constant presale_soft_cap = 200 ether;
     uint256 public presaleTimeout = 0;
     
-    address private constant _marketing_address = 0x0000000000000000000000000000000000000000;
+    address private constant _marketing_address = 0x42814a3a9c0dc921c0Ca43d96E04e86f2a8Ed4e0;
     
     address private constant _marketing_CERBUL_addr = 0xE32b994a73568f546B0c75F17E51eb655afBF560; // twitter.com/CerbulBTC
     uint256 private constant _marketing_CERBUL_amount = 2000 ether;
@@ -446,21 +446,24 @@ contract AP3 is Context, IBEP20, Ownable {
     address private constant _marketing_CRYPTOCREW_addr = 0x98743927ff0f8b5E7A4cbe0f63578a9E984fb3b6; // twitter.com/CryptoTickers
     uint256 private constant _marketing_CRYPTOCREW_amount = 1000 ether;
     
+    address private constant _marketing_LFEDEFI_addr = 0x623ab856af9015f10A835b57958800194551C4A3; // tg @lfedefi
+    uint256 private constant _marketing_LFEDEFI_amount = 2000 ether;
+    
     uint256 private _marketingFunds = 50000 ether; 
     
-    address private constant _team_address = 0x0000000000000000000000000000000000000000;
+    address private constant _team_address = 0x427bc3E93dfeb8cCA0c554279DC0c4e071A34e1F;
     uint256 private _teamFunds = 100000 ether;
     
     uint256 private _servicenext = 0;
     
     uint256 private ap3vault = 0;
     
-    address private constant pancake_swap_router = 0x0000000000000000000000000000000000000000;
+    address private constant pancake_swap_router = 0x05fF2B0DB69458A0750badebc4f9e13aDd608C7F;
     address public pancake_swap_pair = address(0); 
     uint256 private constant listingprice = 400;
     
     GORILLA private gorilla;
-    address private gorillainitiator = 0x0000000000000000000000000000000000000000;
+    address private gorillainitiator = 0x16DcAa8eA7E653a868C5D0538516297d5fb9Fb8e;
     uint256 private lastgorilla = 0;
      
     uint256 public farmingTotal = 0;
@@ -523,6 +526,9 @@ contract AP3 is Context, IBEP20, Ownable {
         
         _lowlevel_transfer(address(this), _marketing_CRYPTOCREW_addr, _marketing_CRYPTOCREW_amount);
         _marketingFunds = _marketingFunds.sub(_marketing_CRYPTOCREW_amount);
+        
+        _lowlevel_transfer(address(this), _marketing_LFEDEFI_addr, _marketing_LFEDEFI_amount);
+        _marketingFunds = _marketingFunds.sub(_marketing_LFEDEFI_amount);
         
         _servicepay();
     }
@@ -596,6 +602,7 @@ contract AP3 is Context, IBEP20, Ownable {
     function _balanceOf(address account) internal view returns(uint256){
         return _balances[account].mul(_getRate()).div(1 ether);
     }
+    
     function balanceOf(address account) external view override returns(uint256) {
         return _balanceOf(account);
     }
@@ -701,6 +708,7 @@ contract AP3 is Context, IBEP20, Ownable {
         _lowlevel_transfer(sender, recipient, _amount);
         
     }
+    
     function transfer_sell_penalty( address sender, uint256 amount ) internal returns(uint256) {
         
         uint256 feeOne = amount.div(100);
@@ -716,6 +724,7 @@ contract AP3 is Context, IBEP20, Ownable {
         return _amount;
         
     }
+    
     function transfer_transaction_fee(address sender, uint256 amount) internal returns(uint256) {
         uint256 fee = amount.div(100);
         return transfer_fees(sender, amount, fee, fee, fee, fee);
@@ -1021,8 +1030,8 @@ contract AP3 is Context, IBEP20, Ownable {
     function _getremainder(address account) internal view returns(uint256){
         uint256 remainder = 0;
         if(farmers[account].round >= 1){
-            uint round = (farmers[account].round).sub(1);
-            remainder = (totalDividends.sub(farmrounds[round])).mul(farmers[account].balance);
+            uint lastround = (farmers[account].round).sub(1);
+            remainder = (totalDividends.sub(farmrounds[lastround])).mul(farmers[account].balance);
         }
         return remainder;
     }
